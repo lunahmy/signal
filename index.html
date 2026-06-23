@@ -1,0 +1,345 @@
+<style>
+  html, body { margin: 0; padding: 0; height: 100%; }
+
+  #flipbook-wrapper {
+    display: flex; justify-content: center; align-items: center;
+    height: 100vh; max-height: 100vh;
+    background: #1a1a1a; font-family: sans-serif;
+    padding: 12px; box-sizing: border-box;
+    overflow: hidden; position: relative;
+    cursor: default;
+  }
+
+  #flipbook-wrapper:fullscreen { background: #1a1a1a; }
+  #flipbook-wrapper:-webkit-full-screen { background: #1a1a1a; }
+
+  /* ── Zoom wrapper: WE own this, PageFlip never touches it ── */
+  #zoom-wrapper {
+    transform-origin: center center;
+    transition: transform 0.2s ease;
+    user-select: none;
+    width: 100%;
+  display: block;
+  position: relative; 
+  }
+  #zoom-wrapper.zoom-active { cursor: grab; }
+  #zoom-wrapper.zoom-active.dragging { cursor: grabbing; }
+
+  /* ── Book: owned entirely by PageFlip, we never set style on it directly except classes ── */
+  #book {
+    box-shadow: none !important;
+    max-height: calc(100vh - 2rem);
+      position: absolute;
+  left: 50%;
+  top: 50%;
+  transform: translate(-50%, -50%);
+  }
+
+  /* Spine gutter shadows — added by the library automatically */
+  .page.--left  { box-shadow: inset -7px 0 30px -7px rgba(0,0,0,0.5); }
+  .page.--right { box-shadow: inset  7px 0 30px -7px rgba(0,0,0,0.5); }
+
+  #book.on-cover { box-shadow: 6px 10px 30px -4px rgba(0,0,0,0.6); }
+  /* Back cover (left page only) — suppress right-side shadow */
+  #book.on-back  { box-shadow: -6px 10px 30px -4px rgba(0,0,0,0.6); }
+
+  .page::after {
+    content: '';
+    position: absolute;
+    top: 0; left: 0; right: 0; bottom: 0;
+    pointer-events: none;
+    z-index: 2;
+  }
+  .page.--left::after  { box-shadow: inset -7px 0 30px -7px rgba(0,0,0,0.5);  }
+  .page.--right::after { box-shadow: inset 7px 0 30px -7px rgba(0,0,0,0.5);  }
+
+  /* ── UI pill (top-right): zoom + fullscreen ── */
+  #ui-pill {
+    position: absolute; top: 14px; right: 14px; z-index: 20;
+    display: flex; align-items: center; gap: 6px;
+    background: rgba(20,20,20,0.72); backdrop-filter: blur(8px);
+    border: 1px solid rgba(255,255,255,0.12);
+    border-radius: 99px; padding: 5px 10px;
+    opacity: 1; transition: opacity 0.4s ease;
+  }
+  #ui-pill.hidden { opacity: 0; pointer-events: none; }
+
+  .pill-btn {
+    background: none; border: none; color: #fff;
+    font-size: 12px; cursor: pointer; padding: 4px 6px;
+    border-radius: 6px; display: flex; align-items: center;
+    transition: background 0.15s;
+  }
+  .pill-btn:hover { background: rgba(255,255,255,0.15); }
+  .pill-btn:disabled { opacity: 0.3; cursor: default; }
+  .pill-btn:disabled:hover { background: none; }
+
+  #page-label {
+    font-size: 11px; color: rgba(255,255,255,0.75);
+    font-family: sans-serif; white-space: nowrap;
+    padding: 0 4px; min-width: 52px; text-align: center;
+  }
+
+  .pill-divider {
+    width: 1px; height: 14px;
+    background: rgba(255,255,255,0.18); flex-shrink: 0;
+  }
+
+  /* ── Nav pill (bottom center): prev / page count / next ── */
+  #nav-pill {
+    position: absolute; bottom: 18px; left: 50%; transform: translateX(-50%);
+    z-index: 20; display: flex; align-items: center; gap: 4px;
+    background: rgba(20,20,20,0.72); backdrop-filter: blur(8px);
+    border: 1px solid rgba(255,255,255,0.12);
+    border-radius: 99px; padding: 5px 10px;
+    opacity: 1; transition: opacity 0.4s ease;
+  }
+  #nav-pill.hidden { opacity: 0; pointer-events: none; }
+</style>
+<link rel="stylesheet"
+      href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.7.2/css/all.min.css">
+
+<div id="flipbook-wrapper">
+
+  <div id="ui-pill">
+    <button class="pill-btn" id="zoom-btn" title="Toggle zoom">
+      <i class="fa-solid fa-magnifying-glass-plus"></i>
+    </button>
+    <div class="pill-divider"></div>
+    <button class="pill-btn" id="fullscreen-btn" title="Fullscreen">
+      <i class="fa-solid fa-expand"></i>
+    </button>
+  </div>
+
+  <div id="nav-pill">
+    <button class="pill-btn" id="prev-btn" title="Previous page">
+      <i class="fa-solid fa-chevron-left"></i>
+    </button>
+    <span id="page-label">1 / 8</span>
+    <button class="pill-btn" id="next-btn" title="Next page">
+      <i class="fa-solid fa-chevron-right"></i>
+    </button>
+  </div>
+
+  <div id="zoom-wrapper">
+    <div id="book">
+      <div class="page"><img src="img/1.png" style="width:100%;height:100%;display:block;"></div>
+      <div class="page"><img src="img/2.png" style="width:100%;height:100%;display:block;"></div>
+      <div class="page"><img src="img/3.png" style="width:100%;height:100%;display:block;"></div>
+      <div class="page"><img src="img/4.png" style="width:100%;height:100%;display:block;"></div>
+      <div class="page"><img src="img/5.png" style="width:100%;height:100%;display:block;"></div>
+      <div class="page"><img src="img/6.png" style="width:100%;height:100%;display:block;"></div>
+      <div class="page"><img src="img/7.png" style="width:100%;height:100%;display:block;"></div>
+      <div class="page"><img src="img/8.png" style="width:100%;height:100%;display:block;"></div>
+    </div>
+  </div>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/page-flip@2.0.7/dist/js/page-flip.browser.js"></script>
+<script>
+  const aspectRatio = 350 / 480;
+  const bookEl = document.getElementById('book');
+  const zoomWrapperEl = document.getElementById('zoom-wrapper');
+  const pagesTemplate = bookEl.innerHTML; // save original pages once, before first init
+
+  let pageFlip;
+
+  function getSize() {
+    const bookH = window.innerHeight - 24;
+    const bookW = Math.round(bookH * aspectRatio);
+    return { bookW, bookH };
+  }
+
+  // ── CORE: unchanged from the working version ──
+  function buildBook() {
+    const { bookW, bookH } = getSize();
+    const startPage = pageFlip ? pageFlip.getCurrentPageIndex() : 0;
+
+    if (pageFlip) pageFlip.destroy(); // NOTE: this removes #book from the DOM
+
+    zoomWrapperEl.appendChild(bookEl); // put it back (inside the zoom wrapper)
+    bookEl.innerHTML = pagesTemplate;
+
+    pageFlip = new St.PageFlip(bookEl, {
+      width: bookW,
+      height: bookH,
+      size: "fixed",
+      showCover: true,
+      mobileScrollSupport: false,
+      usePortrait: true,
+      drawShadow: true,
+      maxShadowOpacity: 0.5
+    });
+
+    pageFlip.loadFromHTML(bookEl.querySelectorAll('.page'));
+    pageFlip.on('flip', updateUI);
+    pageFlip.on('init', updateUI);
+
+    if (startPage > 0) pageFlip.turnToPage(startPage);
+    resetZoom(); // don't carry a stale zoom/pan across a resize-triggered rebuild
+    setTimeout(updateUI, 50);
+  }
+
+  let resizeTimer;
+  function scheduleRebuild() {
+    clearTimeout(resizeTimer);
+    resizeTimer = setTimeout(buildBook, 150);
+  }
+  window.addEventListener('resize', scheduleRebuild);
+  document.addEventListener('fullscreenchange', scheduleRebuild);
+  document.addEventListener('webkitfullscreenchange', scheduleRebuild);
+
+  // ── UI elements ──
+  const wrapper       = document.getElementById('flipbook-wrapper');
+  const fullscreenBtn = document.getElementById('fullscreen-btn');
+  const zoomBtn        = document.getElementById('zoom-btn');
+  const prevBtn        = document.getElementById('prev-btn');
+  const nextBtn        = document.getElementById('next-btn');
+  const pageLabel      = document.getElementById('page-label');
+  const uiPill         = document.getElementById('ui-pill');
+  const navPill        = document.getElementById('nav-pill');
+
+function updateUI() {
+  const current = pageFlip.getCurrentPageIndex();
+  const total = pageFlip.getPageCount();
+
+  const isSpread = window.innerWidth > 700; // your 2-page mode condition
+
+  bookEl.classList.toggle('on-cover', current === 0);
+  bookEl.classList.toggle('on-back', current >= total - 1);
+
+  let label;
+
+  if (!isSpread) {
+    // single-page mode
+    label = `${current + 1} / ${total}`;
+  } else {
+    // SPREAD MODE LOGIC
+
+    if (current === 0) {
+      // cover
+      label = `1 / ${total}`;
+    } 
+    else if (current >= total - 1) {
+      // last page (standalone)
+      label = `${total} / ${total}`;
+    } 
+    else {
+      // interior spreads: 2-3, 4-5, 6-7...
+
+      // convert spread index → logical page pair
+      const left = current + 1;
+      const right = current + 2;
+
+      label = `${left}-${right} / ${total}`;
+    }
+  }
+
+  pageLabel.textContent = label;
+
+  prevBtn.disabled = current === 0;
+  nextBtn.disabled = current >= total - 1;
+}
+
+prevBtn.addEventListener('click', () => pageFlip.flipPrev());
+  nextBtn.addEventListener('click', () => pageFlip.flipNext());
+
+  // ── Auto-hide pills on mouse idle ──
+  let hideTimer;
+  function showPills() {
+    uiPill.classList.remove('hidden');
+    navPill.classList.remove('hidden');
+    clearTimeout(hideTimer);
+    hideTimer = setTimeout(() => {
+      uiPill.classList.add('hidden');
+      navPill.classList.add('hidden');
+    }, 2500);
+  }
+  wrapper.addEventListener('mousemove', showPills);
+  wrapper.addEventListener('touchstart', showPills);
+
+  // ── Fullscreen ──
+  function isFullscreen() {
+    return document.fullscreenElement || document.webkitFullscreenElement;
+  }
+
+  fullscreenBtn.addEventListener('click', () => {
+    if (!isFullscreen()) {
+      if (wrapper.requestFullscreen) wrapper.requestFullscreen();
+      else if (wrapper.webkitRequestFullscreen) wrapper.webkitRequestFullscreen();
+    } else {
+      if (document.exitFullscreen) document.exitFullscreen();
+      else if (document.webkitExitFullscreen) document.webkitExitFullscreen();
+    }
+  });
+
+  function updateBtnLabel() {
+    fullscreenBtn.innerHTML = isFullscreen()
+      ? '<i class="fa-solid fa-compress"></i>'
+      : '<i class="fa-solid fa-expand"></i>';
+  }
+  document.addEventListener('fullscreenchange', updateBtnLabel);
+  document.addEventListener('webkitfullscreenchange', updateBtnLabel);
+
+  // ── Zoom — now targets #zoom-wrapper, never #book ──
+  let zoomActive = false;
+  let scale = 1, panX = 0, panY = 0;
+  let dragging = false, dragStartX, dragStartY, panStartX, panStartY;
+
+  function applyTransform() {
+    zoomWrapperEl.style.transform = `translate(${panX}px, ${panY}px) scale(${scale})`;
+  }
+
+  function resetZoom() {
+    scale = 1; panX = 0; panY = 0;
+    applyTransform();
+  }
+
+  zoomBtn.addEventListener('click', () => {
+    zoomActive = !zoomActive;
+    zoomWrapperEl.classList.toggle('zoom-active', zoomActive);
+    zoomBtn.innerHTML = zoomActive
+      ? '<i class="fa-solid fa-magnifying-glass-minus"></i>'
+      : '<i class="fa-solid fa-magnifying-glass-plus"></i>';
+
+    if (zoomActive) {
+      // give immediate visual feedback instead of requiring a scroll first
+      scale = 1.6;
+      applyTransform();
+    } else {
+      resetZoom();
+    }
+    bookEl.style.pointerEvents = zoomActive ? 'none' : '';
+  });
+
+  wrapper.addEventListener('wheel', (e) => {
+    if (!zoomActive) return;
+    e.preventDefault();
+    const delta = e.deltaY > 0 ? -0.1 : 0.1;
+    scale = Math.min(4, Math.max(1, scale + delta));
+    if (scale === 1) { panX = 0; panY = 0; }
+    applyTransform();
+  }, { passive: false });
+
+  wrapper.addEventListener('mousedown', (e) => {
+    if (!zoomActive || scale <= 1) return;
+    dragging = true;
+    zoomWrapperEl.classList.add('dragging');
+    dragStartX = e.clientX; dragStartY = e.clientY;
+    panStartX = panX; panStartY = panY;
+  });
+  window.addEventListener('mousemove', (e) => {
+    if (!dragging) return;
+    panX = panStartX + (e.clientX - dragStartX);
+    panY = panStartY + (e.clientY - dragStartY);
+    applyTransform();
+  });
+  window.addEventListener('mouseup', () => {
+    if (!dragging) return;
+    dragging = false;
+    zoomWrapperEl.classList.remove('dragging');
+  });
+
+  // ── Init ──
+  buildBook();
+</script>
